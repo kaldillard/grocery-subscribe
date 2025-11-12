@@ -321,18 +321,98 @@
             }
         }
 
-        // Check if user is logged in
+        // Check if user is logged in or has access token
         window.addEventListener('DOMContentLoaded', async () => {
+            // Check for hash parameters (magic link auth)
+            const hashParams = new URLSearchParams(window.location.hash.substring(1));
+            const accessToken = hashParams.get('access_token');
+            const refreshToken = hashParams.get('refresh_token');
+            
+            // If we have tokens from magic link, set the session
+            if (accessToken && refreshToken) {
+                try {
+                    await supabaseClient.auth.setSession({
+                        access_token: accessToken,
+                        refresh_token: refreshToken
+                    });
+                    // Clean up URL
+                    window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
+                } catch (error) {
+                    console.error('Error setting session:', error);
+                }
+            }
+            
             const { data: { session } } = await supabaseClient.auth.getSession();
             
+            // If still no session and no user_id, show error
             if (!session && !userId) {
                 const errorDiv = document.getElementById('error');
-                errorDiv.textContent = 'Please log in to your account first to subscribe.';
+                errorDiv.textContent = 'Please log in to your account first to subscribe. Check your email for the login link.';
                 errorDiv.style.display = 'block';
                 
                 // Disable buttons
                 document.getElementById('pro-btn').disabled = true;
                 document.getElementById('family-btn').disabled = true;
+                return;
+            }
+            
+            // If we have user_id from URL but no session, that's okay for subscribing
+            if (userId && !session) {
+                console.log('Using user_id from URL:', userId);
+            }
+
+            // Fetch family member count and update pricing
+            if (familyId || userId) {
+                try {
+                    let queryFamilyId = familyId;
+                    
+                    // If no family_id in URL, fetch user's family
+                    if (!queryFamilyId && userId) {
+                        const { data, error } = await supabaseClient
+                            .from('family_members')
+                            .select('family_id')
+                            .eq('user_id', userId)
+                            .limit(1)
+                            .single();
+                        
+                        if (data) {
+                            queryFamilyId = data.family_id;
+                            familyId = data.family_id; // Update global variable
+                        }
+                    }
+
+                    if (queryFamilyId) {
+                        // Count family members
+                        const { data: members, error } = await supabaseClient
+                            .from('family_members')
+                            .select('id')
+                            .eq('family_id', queryFamilyId);
+                        
+                        if (!error && members) {
+                            const memberCount = members.length;
+                            
+                            // Update UI with current member count
+                            const memberCountLi = document.getElementById('member-count');
+                            memberCountLi.style.display = 'list-item';
+                            memberCountLi.textContent = `Current: ${memberCount} member${memberCount !== 1 ? 's' : ''}`;
+                            
+                            // Calculate and show price
+                            if (memberCount > 5) {
+                                const basePrice = 4.99;
+                                const additionalUsers = memberCount - 5;
+                                const additionalCost = additionalUsers * 0.99;
+                                const totalPrice = basePrice + additionalCost;
+                                
+                                document.getElementById('family-price').innerHTML = 
+                                    `<span class="currency">$</span>${totalPrice.toFixed(2)}`;
+                                document.getElementById('family-period').textContent = 
+                                    `per month (${memberCount} members)`;
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error fetching member count:', error);
+                }
             }
         });
     </script>
