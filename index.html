@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upgrade - Family Grocery List</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            width: 100%;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+
+        .plans {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .plan {
+            background: white;
+            border-radius: 20px;
+            padding: 40px 30px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .plan:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 50px rgba(0, 0, 0, 0.15);
+        }
+
+        .plan.featured {
+            border: 3px solid #4caf50;
+        }
+
+        .plan.featured::before {
+            content: 'POPULAR';
+            position: absolute;
+            top: 20px;
+            right: -35px;
+            background: #4caf50;
+            color: white;
+            padding: 5px 40px;
+            transform: rotate(45deg);
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+
+        .plan-name {
+            font-size: 1.8rem;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .plan-price {
+            font-size: 3rem;
+            color: #4caf50;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .plan-price .currency {
+            font-size: 1.5rem;
+        }
+
+        .plan-period {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 1rem;
+        }
+
+        .features {
+            list-style: none;
+            margin-bottom: 30px;
+        }
+
+        .features li {
+            padding: 12px 0;
+            color: #555;
+            border-bottom: 1px solid #eee;
+        }
+
+        .features li:last-child {
+            border-bottom: none;
+        }
+
+        .features li::before {
+            content: '✓';
+            color: #4caf50;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+
+        .subscribe-btn {
+            width: 100%;
+            padding: 15px;
+            background: #4caf50;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .subscribe-btn:hover {
+            background: #45a049;
+        }
+
+        .subscribe-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .notice {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 25px;
+            text-align: center;
+        }
+
+        .notice h3 {
+            color: #ff9800;
+            margin-bottom: 10px;
+            font-size: 1.3rem;
+        }
+
+        .notice p {
+            color: #666;
+            line-height: 1.6;
+        }
+
+        .error {
+            background: #ffebee;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🛒 Upgrade Your Grocery List</h1>
+            <p>Choose the plan that's right for you</p>
+        </div>
+
+        <div id="error" class="error" style="display: none;"></div>
+
+        <div class="plans">
+            <!-- Pro Plan -->
+            <div class="plan">
+                <div class="plan-name">Pro</div>
+                <div class="plan-price">
+                    <span class="currency">$</span>1.99
+                </div>
+                <div class="plan-period">per month</div>
+                <ul class="features">
+                    <li>1 user</li>
+                    <li>Unlimited lists</li>
+                    <li>Real-time sync</li>
+                    <li>All features</li>
+                </ul>
+                <button class="subscribe-btn" onclick="subscribe('pro')" id="pro-btn">
+                    Subscribe to Pro
+                </button>
+            </div>
+
+            <!-- Family Plan -->
+            <div class="plan featured">
+                <div class="plan-name">Family</div>
+                <div class="plan-price" id="family-price">
+                    <span class="currency">$</span>4.99
+                </div>
+                <div class="plan-period" id="family-period">per month</div>
+                <ul class="features">
+                    <li>Up to 5 users included</li>
+                    <li>$0.99 per additional user</li>
+                    <li id="member-count" style="display: none;"></li>
+                    <li>Unlimited lists</li>
+                    <li>Real-time sync</li>
+                    <li>Share with family</li>
+                </ul>
+                <button class="subscribe-btn" onclick="subscribe('family')" id="family-btn">
+                    Subscribe to Family
+                </button>
+            </div>
+        </div>
+
+        <div class="notice">
+            <h3>⭐ Early Adopter Benefit</h3>
+            <p>
+                Subscribe now and lock in these prices forever! Your rate stays the same 
+                even when prices increase for new users. Plus, cancel anytime with no questions asked.
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // Configuration - UPDATE THESE VALUES
+        const SUPABASE_URL = 'https://spgxvhfotvfyjpuciuee.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNwZ3h2aGZvdHZmeWpwdWNpdWVlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI4NTc4ODMsImV4cCI6MjA3ODQzMzg4M30.oaNLgMACmsSW5hJLJ2zOslaksNTuSV1pztXk_JyYf0Y';
+
+        // Initialize Supabase
+        const { createClient } = supabase;
+        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // Get user_id from URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const userId = urlParams.get('user_id');
+
+        // Get family_id if available
+        let familyId = urlParams.get('family_id');
+
+        async function subscribe(tier) {
+            const button = document.getElementById(`${tier}-btn`);
+            const errorDiv = document.getElementById('error');
+            
+            // Disable button and show loading
+            button.disabled = true;
+            button.innerHTML = '<span class="loading"></span> Processing...';
+            errorDiv.style.display = 'none';
+
+            try {
+                // If no family_id in URL, fetch user's family
+                if (!familyId && userId) {
+                    const { data, error } = await supabaseClient
+                        .from('family_members')
+                        .select('family_id')
+                        .eq('user_id', userId)
+                        .limit(1)
+                        .single();
+                    
+                    if (data) {
+                        familyId = data.family_id;
+                    }
+                }
+
+                // Call Supabase Edge Function to create checkout session
+                const { data, error } = await supabaseClient.functions.invoke(
+                    'create-checkout-session',
+                    {
+                        body: {
+                            tier: tier,
+                            family_id: familyId || '',
+                            user_id: userId || ''
+                        }
+                    }
+                );
+
+                if (error) throw error;
+
+                if (data.url) {
+                    // Redirect to Stripe Checkout
+                    window.location.href = data.url;
+                } else {
+                    throw new Error('No checkout URL received');
+                }
+
+            } catch (error) {
+                console.error('Subscription error:', error);
+                errorDiv.textContent = `Error: ${error.message}`;
+                errorDiv.style.display = 'block';
+                
+                // Re-enable button
+                button.disabled = false;
+                button.innerHTML = `Subscribe to ${tier.charAt(0).toUpperCase() + tier.slice(1)}`;
+            }
+        }
+
+        // Check if user is logged in
+        window.addEventListener('DOMContentLoaded', async () => {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            
+            if (!session && !userId) {
+                const errorDiv = document.getElementById('error');
+                errorDiv.textContent = 'Please log in to your account first to subscribe.';
+                errorDiv.style.display = 'block';
+                
+                // Disable buttons
+                document.getElementById('pro-btn').disabled = true;
+                document.getElementById('family-btn').disabled = true;
+            }
+        });
+    </script>
+</body>
+</html>
