@@ -140,7 +140,7 @@
             transition: background 0.3s;
         }
 
-        .subscribe-btn:hover {
+        .subscribe-btn:hover:not(:disabled) {
             background: #45a049;
         }
 
@@ -168,6 +168,7 @@
             border-radius: 15px;
             padding: 25px;
             text-align: center;
+            margin-bottom: 20px;
         }
 
         .notice h3 {
@@ -181,6 +182,15 @@
             line-height: 1.6;
         }
 
+        .info-notice {
+            background: rgba(33, 150, 243, 0.15);
+            border-left: 4px solid #2196F3;
+        }
+
+        .info-notice h3 {
+            color: #2196F3;
+        }
+
         .error {
             background: #ffebee;
             color: #c62828;
@@ -188,6 +198,30 @@
             border-radius: 10px;
             margin-bottom: 20px;
             text-align: center;
+        }
+
+        .warning {
+            background: #fff3cd;
+            color: #856404;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+            border: 1px solid #ffeaa7;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .plan {
+                padding: 30px 20px;
+            }
+            
+            .plans {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
@@ -199,6 +233,7 @@
         </div>
 
         <div id="error" class="error" style="display: none;"></div>
+        <div id="warning" class="warning" style="display: none;"></div>
 
         <div class="plans">
             <!-- Pro Plan -->
@@ -210,6 +245,7 @@
                 <div class="plan-period">per month</div>
                 <ul class="features">
                     <li>1 user</li>
+                    <li>1 family</li>
                     <li>Unlimited lists</li>
                     <li>Real-time sync</li>
                     <li>All features</li>
@@ -230,6 +266,7 @@
                     <li>Up to 5 users included</li>
                     <li>$0.99 per additional user</li>
                     <li id="member-count" style="display: none;"></li>
+                    <li>1 family</li>
                     <li>Unlimited lists</li>
                     <li>Real-time sync</li>
                     <li>Share with family</li>
@@ -238,6 +275,14 @@
                     Subscribe to Family
                 </button>
             </div>
+        </div>
+
+        <div class="notice info-notice">
+            <h3>ℹ️ Important: One Family Per Plan</h3>
+            <p>
+                Each subscription covers <strong>one family</strong>. If you need to manage multiple families, 
+                each family will require its own subscription.
+            </p>
         </div>
 
         <div class="notice">
@@ -250,7 +295,7 @@
     </div>
 
     <script>
-        // Configuration - UPDATE THESE VALUES
+        // Configuration
         const SUPABASE_URL = 'https://spgxvhfotvfyjpuciuee.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNwZ3h2aGZvdHZmeWpwdWNpdWVlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI4NTc4ODMsImV4cCI6MjA3ODQzMzg4M30.oaNLgMACmsSW5hJLJ2zOslaksNTuSV1pztXk_JyYf0Y';
 
@@ -258,21 +303,21 @@
         const { createClient } = supabase;
         const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        // Get user_id from URL parameters
+        // Get parameters from URL
         const urlParams = new URLSearchParams(window.location.search);
         const userId = urlParams.get('user_id');
-
-        // Get family_id if available
         let familyId = urlParams.get('family_id');
 
         async function subscribe(tier) {
             const button = document.getElementById(`${tier}-btn`);
             const errorDiv = document.getElementById('error');
+            const warningDiv = document.getElementById('warning');
             
             // Disable button and show loading
             button.disabled = true;
             button.innerHTML = '<span class="loading"></span> Processing...';
             errorDiv.style.display = 'none';
+            warningDiv.style.display = 'none';
 
             try {
                 // If no family_id in URL, fetch user's family
@@ -289,30 +334,69 @@
                     }
                 }
 
+                // Validate family_id exists
+                if (!familyId) {
+                    throw new Error('No family found. Please create a family in the app first.');
+                }
+
+                console.log('Creating checkout session for:', { tier, familyId, userId });
+
                 // Call Supabase Edge Function to create checkout session
                 const { data, error } = await supabaseClient.functions.invoke(
                     'create-checkout-session',
                     {
                         body: {
                             tier: tier,
-                            family_id: familyId || '',
+                            family_id: familyId,
                             user_id: userId || ''
                         }
                     }
                 );
 
-                if (error) throw error;
+                console.log('Checkout session response:', { data, error });
 
-                if (data.url) {
-                    // Redirect to Stripe Checkout
-                    window.location.href = data.url;
-                } else {
-                    throw new Error('No checkout URL received');
+                if (error) {
+                    console.error('Function invocation error:', error);
+                    throw error;
                 }
+
+                // Handle different response formats
+                let checkoutUrl = null;
+
+                if (data && typeof data === 'object') {
+                    // Try different possible field names
+                    checkoutUrl = data.url || data.sessionUrl || data.checkoutUrl;
+                    
+                    // If we have a sessionId, construct the URL
+                    if (!checkoutUrl && (data.sessionId || data.id)) {
+                        const sessionId = data.sessionId || data.id;
+                        checkoutUrl = `https://checkout.stripe.com/c/pay/${sessionId}`;
+                    }
+                }
+
+                if (!checkoutUrl) {
+                    console.error('No checkout URL found in response:', data);
+                    throw new Error('No checkout URL received. Please try again or contact support.');
+                }
+
+                console.log('Redirecting to:', checkoutUrl);
+
+                // Redirect to Stripe Checkout
+                window.location.href = checkoutUrl;
 
             } catch (error) {
                 console.error('Subscription error:', error);
-                errorDiv.textContent = `Error: ${error.message}`;
+                
+                let errorMessage = error.message || 'An unexpected error occurred';
+                
+                // Handle specific error types
+                if (error.message && error.message.includes('family')) {
+                    errorMessage = 'Please create a family in the app before subscribing.';
+                } else if (error.message && error.message.includes('Function')) {
+                    errorMessage = 'Unable to connect to payment service. Please try again in a moment.';
+                }
+                
+                errorDiv.textContent = `Error: ${errorMessage}`;
                 errorDiv.style.display = 'block';
                 
                 // Re-enable button
@@ -321,98 +405,110 @@
             }
         }
 
-        // Check if user is logged in or has access token
+        // Check authentication and load family info
         window.addEventListener('DOMContentLoaded', async () => {
-            // Check for hash parameters (magic link auth)
-            const hashParams = new URLSearchParams(window.location.hash.substring(1));
-            const accessToken = hashParams.get('access_token');
-            const refreshToken = hashParams.get('refresh_token');
+            const errorDiv = document.getElementById('error');
+            const warningDiv = document.getElementById('warning');
             
-            // If we have tokens from magic link, set the session
-            if (accessToken && refreshToken) {
-                try {
-                    await supabaseClient.auth.setSession({
-                        access_token: accessToken,
-                        refresh_token: refreshToken
-                    });
-                    // Clean up URL
-                    window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
-                } catch (error) {
-                    console.error('Error setting session:', error);
-                }
-            }
-            
-            const { data: { session } } = await supabaseClient.auth.getSession();
-            
-            // If still no session and no user_id, show error
-            if (!session && !userId) {
-                const errorDiv = document.getElementById('error');
-                errorDiv.textContent = 'Please log in to your account first to subscribe. Check your email for the login link.';
-                errorDiv.style.display = 'block';
+            try {
+                // Check for hash parameters (magic link auth)
+                const hashParams = new URLSearchParams(window.location.hash.substring(1));
+                const accessToken = hashParams.get('access_token');
+                const refreshToken = hashParams.get('refresh_token');
                 
-                // Disable buttons
-                document.getElementById('pro-btn').disabled = true;
-                document.getElementById('family-btn').disabled = true;
-                return;
-            }
-            
-            // If we have user_id from URL but no session, that's okay for subscribing
-            if (userId && !session) {
-                console.log('Using user_id from URL:', userId);
-            }
-
-            // Fetch family member count and update pricing
-            if (familyId || userId) {
-                try {
-                    let queryFamilyId = familyId;
-                    
-                    // If no family_id in URL, fetch user's family
-                    if (!queryFamilyId && userId) {
-                        const { data, error } = await supabaseClient
-                            .from('family_members')
-                            .select('family_id')
-                            .eq('user_id', userId)
-                            .limit(1)
-                            .single();
-                        
-                        if (data) {
-                            queryFamilyId = data.family_id;
-                            familyId = data.family_id; // Update global variable
-                        }
+                // If we have tokens from magic link, set the session
+                if (accessToken && refreshToken) {
+                    try {
+                        await supabaseClient.auth.setSession({
+                            access_token: accessToken,
+                            refresh_token: refreshToken
+                        });
+                        // Clean up URL
+                        window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
+                    } catch (error) {
+                        console.error('Error setting session:', error);
                     }
-
-                    if (queryFamilyId) {
-                        // Count family members
-                        const { data: members, error } = await supabaseClient
-                            .from('family_members')
-                            .select('id')
-                            .eq('family_id', queryFamilyId);
-                        
-                        if (!error && members) {
-                            const memberCount = members.length;
-                            
-                            // Update UI with current member count
-                            const memberCountLi = document.getElementById('member-count');
-                            memberCountLi.style.display = 'list-item';
-                            memberCountLi.textContent = `Current: ${memberCount} member${memberCount !== 1 ? 's' : ''}`;
-                            
-                            // Calculate and show price
-                            if (memberCount > 5) {
-                                const basePrice = 4.99;
-                                const additionalUsers = memberCount - 5;
-                                const additionalCost = additionalUsers * 0.99;
-                                const totalPrice = basePrice + additionalCost;
-                                
-                                document.getElementById('family-price').innerHTML = 
-                                    `<span class="currency">$</span>${totalPrice.toFixed(2)}`;
-                                document.getElementById('family-period').textContent = 
-                                    `per month (${memberCount} members)`;
-                            }
-                        }
-                    }
-                } catch (error) {
-                    console.error('Error fetching member count:', error);
                 }
+                
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                
+                // If no session and no user_id, show error
+                if (!session && !userId) {
+                    errorDiv.textContent = 'Please log in to your account first to subscribe. Check your email for the login link.';
+                    errorDiv.style.display = 'block';
+                    
+                    // Disable buttons
+                    document.getElementById('pro-btn').disabled = true;
+                    document.getElementById('family-btn').disabled = true;
+                    return;
+                }
+                
+                // Get or fetch family_id
+                if (!familyId && userId) {
+                    const { data, error } = await supabaseClient
+                        .from('family_members')
+                        .select('family_id')
+                        .eq('user_id', userId)
+                        .limit(1)
+                        .single();
+                    
+                    if (data) {
+                        familyId = data.family_id;
+                    } else {
+                        warningDiv.textContent = 'Please create a family in the app before subscribing.';
+                        warningDiv.style.display = 'block';
+                        return;
+                    }
+                }
+
+                // Check if family already has an active subscription
+                if (familyId) {
+                    const { data: existingSub, error } = await supabaseClient
+                        .from('subscriptions')
+                        .select('tier, status')
+                        .eq('family_id', familyId)
+                        .eq('status', 'active')
+                        .single();
+                    
+                    if (existingSub) {
+                        warningDiv.textContent = `This family already has an active ${existingSub.tier} subscription.`;
+                        warningDiv.style.display = 'block';
+                    }
+                }
+
+                // Fetch and display family member count
+                if (familyId) {
+                    const { data: members, error } = await supabaseClient
+                        .from('family_members')
+                        .select('id')
+                        .eq('family_id', familyId);
+                    
+                    if (!error && members) {
+                        const memberCount = members.length;
+                        
+                        // Update UI with current member count
+                        const memberCountLi = document.getElementById('member-count');
+                        memberCountLi.style.display = 'list-item';
+                        memberCountLi.textContent = `Current: ${memberCount} member${memberCount !== 1 ? 's' : ''}`;
+                        
+                        // Calculate and show price for Family plan
+                        if (memberCount > 5) {
+                            const basePrice = 4.99;
+                            const additionalUsers = memberCount - 5;
+                            const additionalCost = additionalUsers * 0.99;
+                            const totalPrice = basePrice + additionalCost;
+                            
+                            document.getElementById('family-price').innerHTML = 
+                                `<span class="currency">$</span>${totalPrice.toFixed(2)}`;
+                            document.getElementById('family-period').textContent = 
+                                `per month (${memberCount} members)`;
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Initialization error:', error);
+                errorDiv.textContent = 'Error loading page. Please refresh and try again.';
+                errorDiv.style.display = 'block';
             }
         });
     </script>
