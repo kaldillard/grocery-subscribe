@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Upgrade - Family Grocery List</title>
+    <title>Upgrade - Family Grocery Haul</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         * {
@@ -14,7 +14,7 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
             min-height: 100vh;
             display: flex;
             align-items: center;
@@ -36,11 +36,12 @@
         .header h1 {
             font-size: 2.5rem;
             margin-bottom: 10px;
+            font-weight: bold;
         }
 
         .header p {
             font-size: 1.2rem;
-            opacity: 0.9;
+            opacity: 0.95;
         }
 
         .plans {
@@ -52,92 +53,94 @@
 
         .plan {
             background: white;
-            border-radius: 20px;
-            padding: 40px 30px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
-            transition: transform 0.3s, box-shadow 0.3s;
+            border-radius: 12px;
+            padding: 32px 24px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
             position: relative;
             overflow: hidden;
         }
 
         .plan:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 15px 50px rgba(0, 0, 0, 0.15);
+            transform: translateY(-4px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
         }
 
         .plan.featured {
-            border: 3px solid #4caf50;
+            border: 2px solid #4caf50;
+            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.2);
         }
 
         .plan.featured::before {
             content: 'POPULAR';
             position: absolute;
-            top: 20px;
-            right: -35px;
+            top: 16px;
+            right: -32px;
             background: #4caf50;
             color: white;
-            padding: 5px 40px;
+            padding: 4px 40px;
             transform: rotate(45deg);
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             font-weight: bold;
+            letter-spacing: 0.5px;
         }
 
         .plan-name {
-            font-size: 1.8rem;
+            font-size: 1.5rem;
             color: #333;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
+            font-weight: bold;
         }
 
         .plan-price {
-            font-size: 3rem;
+            font-size: 2.5rem;
             color: #4caf50;
             font-weight: bold;
-            margin-bottom: 5px;
+            margin-bottom: 4px;
         }
 
         .plan-price .currency {
-            font-size: 1.5rem;
+            font-size: 1.25rem;
         }
 
         .plan-period {
             color: #666;
-            margin-bottom: 30px;
-            font-size: 1rem;
+            margin-bottom: 24px;
+            font-size: 0.95rem;
         }
 
         .features {
             list-style: none;
-            margin-bottom: 30px;
+            margin-bottom: 24px;
         }
 
         .features li {
-            padding: 12px 0;
+            padding: 10px 0;
             color: #555;
-            border-bottom: 1px solid #eee;
-        }
-
-        .features li:last-child {
-            border-bottom: none;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
         }
 
         .features li::before {
             content: '✓';
             color: #4caf50;
             font-weight: bold;
-            margin-right: 10px;
+            margin-right: 12px;
+            font-size: 1.1rem;
         }
 
         .subscribe-btn {
             width: 100%;
-            padding: 15px;
+            padding: 14px;
             background: #4caf50;
             color: white;
             border: none;
-            border-radius: 10px;
-            font-size: 1.1rem;
+            border-radius: 8px;
+            font-size: 1rem;
             font-weight: bold;
             cursor: pointer;
-            transition: background 0.3s;
+            transition: background 0.2s;
         }
 
         .subscribe-btn:hover:not(:disabled) {
@@ -151,8 +154,8 @@
 
         .loading {
             display: inline-block;
-            width: 20px;
-            height: 20px;
+            width: 18px;
+            height: 18px;
             border: 3px solid rgba(255,255,255,.3);
             border-radius: 50%;
             border-top-color: white;
@@ -164,26 +167,28 @@
         }
 
         .notice {
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 15px;
-            padding: 25px;
-            text-align: center;
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
             margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         }
 
         .notice h3 {
             color: #ff9800;
-            margin-bottom: 10px;
-            font-size: 1.3rem;
+            margin-bottom: 8px;
+            font-size: 1.1rem;
+            font-weight: bold;
         }
 
         .notice p {
             color: #666;
-            line-height: 1.6;
+            line-height: 1.5;
+            font-size: 0.95rem;
         }
 
         .info-notice {
-            background: rgba(33, 150, 243, 0.15);
+            background: #e3f2fd;
             border-left: 4px solid #2196F3;
         }
 
@@ -191,23 +196,37 @@
             color: #2196F3;
         }
 
-        .error {
-            background: #ffebee;
-            color: #c62828;
-            padding: 15px;
-            border-radius: 10px;
+        .alert {
+            padding: 14px 16px;
+            border-radius: 8px;
             margin-bottom: 20px;
             text-align: center;
+            display: none;
+            font-size: 0.95rem;
         }
 
-        .warning {
+        .alert.error {
+            background: #ffebee;
+            color: #c62828;
+            border: 1px solid #ef9a9a;
+        }
+
+        .alert.warning {
             background: #fff3cd;
             color: #856404;
-            padding: 15px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            text-align: center;
-            border: 1px solid #ffeaa7;
+            border: 1px solid #ffc107;
+        }
+
+        .alert.info {
+            background: #e3f2fd;
+            color: #1565c0;
+            border: 1px solid #90caf9;
+        }
+
+        .alert.success {
+            background: #e8f5e9;
+            color: #2e7d32;
+            border: 1px solid #81c784;
         }
 
         @media (max-width: 768px) {
@@ -216,7 +235,7 @@
             }
             
             .plan {
-                padding: 30px 20px;
+                padding: 24px 20px;
             }
             
             .plans {
@@ -228,12 +247,14 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>🛒 Upgrade Your Grocery List</h1>
+            <h1>🛒 Family Grocery Haul</h1>
             <p>Choose the plan that's right for you</p>
         </div>
 
-        <div id="error" class="error" style="display: none;"></div>
-        <div id="warning" class="warning" style="display: none;"></div>
+        <div id="error-alert" class="alert error"></div>
+        <div id="warning-alert" class="alert warning"></div>
+        <div id="info-alert" class="alert info"></div>
+        <div id="success-alert" class="alert success"></div>
 
         <div class="plans">
             <!-- Pro Plan -->
@@ -295,79 +316,100 @@
     </div>
 
     <script>
-        // Configuration
         const SUPABASE_URL = 'https://spgxvhfotvfyjpuciuee.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNwZ3h2aGZvdHZmeWpwdWNpdWVlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI4NTc4ODMsImV4cCI6MjA3ODQzMzg4M30.oaNLgMACmsSW5hJLJ2zOslaksNTuSV1pztXk_JyYf0Y';
 
-        // Initialize Supabase
         const { createClient } = supabase;
         const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        // Get parameters from URL
         const urlParams = new URLSearchParams(window.location.search);
-        const userId = urlParams.get('user_id');
-        let familyId = urlParams.get('family_id');
+        const token = urlParams.get('token');
+        let userId = null;
+        let familyId = null;
+
+        function showAlert(type, message) {
+            const alertId = `${type}-alert`;
+            const alertEl = document.getElementById(alertId);
+            alertEl.textContent = message;
+            alertEl.style.display = 'block';
+            
+            ['error', 'warning', 'info', 'success'].forEach(t => {
+                if (t !== type) {
+                    document.getElementById(`${t}-alert`).style.display = 'none';
+                }
+            });
+        }
+
+        function hideAlerts() {
+            ['error', 'warning', 'info', 'success'].forEach(type => {
+                document.getElementById(`${type}-alert`).style.display = 'none';
+            });
+        }
+
+        // Decode base64url token
+        function decodeToken(token) {
+            try {
+                let paddedToken = token;
+                while (paddedToken.length % 4 !== 0) {
+                    paddedToken += '=';
+                }
+                
+                const decoded = atob(paddedToken.replace(/-/g, '+').replace(/_/g, '/'));
+                return JSON.parse(decoded);
+            } catch (e) {
+                console.error('Error decoding token:', e);
+                return null;
+            }
+        }
+
+        // Check if token is still valid (15 minutes)
+        function isTokenValid(tokenData) {
+            if (!tokenData || !tokenData.timestamp) return false;
+            
+            const tokenTime = new Date(tokenData.timestamp);
+            const now = new Date();
+            const diffMinutes = (now - tokenTime) / (1000 * 60);
+            
+            return diffMinutes <= 15;
+        }
 
         async function subscribe(tier) {
             const button = document.getElementById(`${tier}-btn`);
-            const errorDiv = document.getElementById('error');
-            const warningDiv = document.getElementById('warning');
+            const originalText = button.textContent;
             
-            // Disable button and show loading
             button.disabled = true;
             button.innerHTML = '<span class="loading"></span> Processing...';
-            errorDiv.style.display = 'none';
-            warningDiv.style.display = 'none';
+            hideAlerts();
 
             try {
-                // If no family_id in URL, fetch user's family
-                if (!familyId && userId) {
-                    const { data, error } = await supabaseClient
-                        .from('family_members')
-                        .select('family_id')
-                        .eq('user_id', userId)
-                        .limit(1)
-                        .single();
-                    
-                    if (data) {
-                        familyId = data.family_id;
-                    }
+                if (!familyId || !userId) {
+                    throw new Error('Missing authentication. Please open this page from the app.');
                 }
 
-                // Validate family_id exists
-                if (!familyId) {
-                    throw new Error('No family found. Please create a family in the app first.');
-                }
+                console.log('Creating checkout session:', { tier, familyId, userId });
 
-                console.log('Creating checkout session for:', { tier, familyId, userId });
-
-                // Call Supabase Edge Function to create checkout session
                 const { data, error } = await supabaseClient.functions.invoke(
                     'create-checkout-session',
                     {
                         body: {
                             tier: tier,
                             family_id: familyId,
-                            user_id: userId || ''
+                            user_id: userId
                         }
                     }
                 );
 
-                console.log('Checkout session response:', { data, error });
-
                 if (error) {
-                    console.error('Function invocation error:', error);
-                    throw error;
+                    console.error('Function error:', error);
+                    throw new Error(error.message || 'Failed to create checkout session');
                 }
 
-                // Handle different response formats
-                let checkoutUrl = null;
+                console.log('Checkout response:', data);
 
+                let checkoutUrl = null;
                 if (data && typeof data === 'object') {
-                    // Try different possible field names
                     checkoutUrl = data.url || data.sessionUrl || data.checkoutUrl;
                     
-                    // If we have a sessionId, construct the URL
                     if (!checkoutUrl && (data.sessionId || data.id)) {
                         const sessionId = data.sessionId || data.id;
                         checkoutUrl = `https://checkout.stripe.com/c/pay/${sessionId}`;
@@ -375,13 +417,9 @@
                 }
 
                 if (!checkoutUrl) {
-                    console.error('No checkout URL found in response:', data);
-                    throw new Error('No checkout URL received. Please try again or contact support.');
+                    throw new Error('No checkout URL received. Please try again.');
                 }
 
-                console.log('Redirecting to:', checkoutUrl);
-
-                // Redirect to Stripe Checkout
                 window.location.href = checkoutUrl;
 
             } catch (error) {
@@ -389,114 +427,102 @@
                 
                 let errorMessage = error.message || 'An unexpected error occurred';
                 
-                // Handle specific error types
-                if (error.message && error.message.includes('family')) {
+                if (errorMessage.includes('authentication') || errorMessage.includes('Missing')) {
+                    errorMessage = 'Please open this subscription page from within the app.';
+                } else if (errorMessage.includes('family')) {
                     errorMessage = 'Please create a family in the app before subscribing.';
-                } else if (error.message && error.message.includes('Function')) {
-                    errorMessage = 'Unable to connect to payment service. Please try again in a moment.';
                 }
                 
-                errorDiv.textContent = `Error: ${errorMessage}`;
-                errorDiv.style.display = 'block';
+                showAlert('error', errorMessage);
                 
-                // Re-enable button
                 button.disabled = false;
-                button.innerHTML = `Subscribe to ${tier.charAt(0).toUpperCase() + tier.slice(1)}`;
+                button.textContent = originalText;
             }
         }
 
-        // Check authentication and load family info
+        // Initialize page
         window.addEventListener('DOMContentLoaded', async () => {
-            const errorDiv = document.getElementById('error');
-            const warningDiv = document.getElementById('warning');
-            
             try {
-                // Check for hash parameters (magic link auth)
-                const hashParams = new URLSearchParams(window.location.hash.substring(1));
-                const accessToken = hashParams.get('access_token');
-                const refreshToken = hashParams.get('refresh_token');
-                
-                // If we have tokens from magic link, set the session
-                if (accessToken && refreshToken) {
-                    try {
-                        await supabaseClient.auth.setSession({
-                            access_token: accessToken,
-                            refresh_token: refreshToken
-                        });
-                        // Clean up URL
-                        window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
-                    } catch (error) {
-                        console.error('Error setting session:', error);
-                    }
-                }
-                
-                const { data: { session } } = await supabaseClient.auth.getSession();
-                
-                // If no session and no user_id, show error
-                if (!session && !userId) {
-                    errorDiv.textContent = 'Please log in to your account first to subscribe. Check your email for the login link.';
-                    errorDiv.style.display = 'block';
+                // Try token authentication first
+                if (token) {
+                    console.log('Token received, validating...');
+                    const tokenData = decodeToken(token);
                     
-                    // Disable buttons
-                    document.getElementById('pro-btn').disabled = true;
-                    document.getElementById('family-btn').disabled = true;
-                    return;
-                }
-                
-                // Get or fetch family_id
-                if (!familyId && userId) {
+                    if (!tokenData) {
+                        throw new Error('Invalid token format');
+                    }
+                    
+                    if (!isTokenValid(tokenData)) {
+                        throw new Error('Token has expired. Please open the subscription page from the app again.');
+                    }
+                    
+                    userId = tokenData.user_id;
+                    familyId = tokenData.family_id;
+                    
+                    console.log('Token validated:', { userId, familyId });
+                    showAlert('success', '✓ Ready to subscribe! Choose your plan below.');
+                    
+                } else {
+                    // Fallback to session auth
+                    const { data: { session } } = await supabaseClient.auth.getSession();
+                    
+                    if (!session) {
+                        showAlert('warning', 'Please open this page from the app to subscribe.');
+                        document.getElementById('pro-btn').disabled = true;
+                        document.getElementById('family-btn').disabled = true;
+                        return;
+                    }
+                    
+                    userId = session.user.id;
+                    
                     const { data, error } = await supabaseClient
                         .from('family_members')
                         .select('family_id')
                         .eq('user_id', userId)
                         .limit(1)
-                        .single();
+                        .maybeSingle();
                     
                     if (data) {
                         familyId = data.family_id;
                     } else {
-                        warningDiv.textContent = 'Please create a family in the app before subscribing.';
-                        warningDiv.style.display = 'block';
+                        showAlert('info', 'Create a family in the app first, then return here to subscribe.');
                         return;
                     }
                 }
 
-                // Check if family already has an active subscription
+                // Check existing subscription
                 if (familyId) {
-                    const { data: existingSub, error } = await supabaseClient
+                    const { data: existingSub } = await supabaseClient
                         .from('subscriptions')
                         .select('tier, status')
                         .eq('family_id', familyId)
-                        .eq('status', 'active')
-                        .single();
+                        .in('status', ['active', 'trialing'])
+                        .maybeSingle();
                     
                     if (existingSub) {
-                        warningDiv.textContent = `This family already has an active ${existingSub.tier} subscription.`;
-                        warningDiv.style.display = 'block';
+                        showAlert('info', 
+                            `This family already has an active ${existingSub.tier} subscription.`);
                     }
                 }
 
-                // Fetch and display family member count
+                // Load member count and calculate pricing
                 if (familyId) {
-                    const { data: members, error } = await supabaseClient
+                    const { data: members } = await supabaseClient
                         .from('family_members')
                         .select('id')
                         .eq('family_id', familyId);
                     
-                    if (!error && members) {
+                    if (members && members.length > 0) {
                         const memberCount = members.length;
+                        const memberCountEl = document.getElementById('member-count');
+                        memberCountEl.style.display = 'list-item';
+                        memberCountEl.textContent = 
+                            `Current: ${memberCount} member${memberCount !== 1 ? 's' : ''}`;
                         
-                        // Update UI with current member count
-                        const memberCountLi = document.getElementById('member-count');
-                        memberCountLi.style.display = 'list-item';
-                        memberCountLi.textContent = `Current: ${memberCount} member${memberCount !== 1 ? 's' : ''}`;
-                        
-                        // Calculate and show price for Family plan
                         if (memberCount > 5) {
                             const basePrice = 4.99;
                             const additionalUsers = memberCount - 5;
-                            const additionalCost = additionalUsers * 0.99;
-                            const totalPrice = basePrice + additionalCost;
+                            const totalPrice = basePrice + (additionalUsers * 0.99);
                             
                             document.getElementById('family-price').innerHTML = 
                                 `<span class="currency">$</span>${totalPrice.toFixed(2)}`;
@@ -506,9 +532,8 @@
                     }
                 }
             } catch (error) {
-                console.error('Initialization error:', error);
-                errorDiv.textContent = 'Error loading page. Please refresh and try again.';
-                errorDiv.style.display = 'block';
+                console.error('Init error:', error);
+                showAlert('error', error.message || 'Error loading page. Please refresh and try again.');
             }
         });
     </script>
