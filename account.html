@@ -1,0 +1,57 @@
+<!-- /account page structure -->
+<html>
+  <head>
+    <title>Account - Family Grocery Haul</title>
+  </head>
+  <body>
+    <!-- Login Form (if not logged in) -->
+    <form id="login-form">
+      <input type="email" placeholder="Email" required />
+      <input type="password" placeholder="Password" required />
+      <button>Sign In</button>
+    </form>
+
+    <!-- After Login: Show Account Details -->
+    <div id="account-details" style="display: none;">
+      <h1>Your Account</h1>
+      
+      <!-- Current Plan -->
+      <div class="current-plan">
+        <h2>Current Plan: Free</h2>
+        <p>1 list, 1 member</p>
+      </div>
+
+      <!-- Upgrade Options -->
+      <div class="upgrade-options">
+        <h2>Upgrade Your Plan</h2>
+        
+        <div class="plan-card">
+          <h3>Pro Plan</h3>
+          <p class="price">$1.99/month</p>
+          <ul>
+            <li>Unlimited lists</li>
+            <li>1 member</li>
+          </ul>
+          <button onclick="upgradeToPro()">Upgrade to Pro</button>
+        </div>
+
+        <div class="plan-card">
+          <h3>Family Plan</h3>
+          <p class="price">$4.99/month</p>
+          <ul>
+            <li>Unlimited lists</li>
+            <li>Up to 5 members</li>
+            <li>$0.99 per additional member</li>
+          </ul>
+          <button onclick="upgradeToFamily()">Upgrade to Family</button>
+        </div>
+      </div>
+
+      <!-- Manage Existing Subscription -->
+      <div class="manage-subscription" style="display: none;">
+        <button onclick="openCustomerPortal()">Manage Subscription</button>
+      </div>
+    </div>
+  </body>
+</html>
+
