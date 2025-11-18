@@ -82,21 +82,29 @@
     <script>
         // Try to open the app immediately
         function openApp() {
-            // Try deep link first
+            console.log('Attempting to open app...');
+            
+            // Try custom scheme first (works best on most platforms)
             window.location.href = 'familygroceryhaul://subscription-success';
             
-            // Fallback: try to close the window after a short delay
+            // Fallback to HTTPS deep link after short delay
+            setTimeout(() => {
+                console.log('Trying HTTPS deep link fallback...');
+                window.location.href = 'https://www.familygroceryhaul.com/subscription-success';
+            }, 500);
+            
+            // Try to close window after longer delay
             setTimeout(() => {
                 try {
                     window.close();
                 } catch (e) {
                     console.log('Could not close window automatically');
                 }
-            }, 500);
+            }, 2000);
         }
 
         // Auto-redirect countdown
-        let seconds = 5;
+        let seconds = 3;
         const countdownEl = document.getElementById('countdown');
         
         function updateCountdown() {
