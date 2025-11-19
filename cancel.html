@@ -485,20 +485,26 @@
 
                 console.log('Canceling subscription:', { familyId, reasons, feedbackText });
 
-                const { data, error } = await supabaseClient.functions.invoke(
-                    'cancel-subscription',
-                    {
-                        body: {
-                            family_id: familyId,
-                            reasons: reasons,
-                            feedback: feedbackText
-                        }
-                    }
-                );
+                // Call the Edge Function with proper headers
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/cancel-subscription`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    },
+                    body: JSON.stringify({
+                        family_id: familyId,
+                        reasons: reasons,
+                        feedback: feedbackText
+                    })
+                });
 
-                if (error) {
-                    throw new Error(error.message || 'Failed to cancel subscription');
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Failed to cancel subscription');
                 }
+
+                const data = await response.json();
 
                 console.log('Cancellation successful:', data);
                 showAlert('success', 'Your subscription has been canceled.');
@@ -531,6 +537,9 @@
                 userId = tokenData.user_id;
                 familyId = tokenData.family_id;
                 
+                console.log('Loading subscription for family:', familyId);
+                console.log('User ID:', userId);
+                
                 // Get current subscription
                 const { data: sub, error } = await supabaseClient
                     .from('subscriptions')
@@ -538,11 +547,17 @@
                     .eq('family_id', familyId)
                     .maybeSingle();
                 
+                console.log('Subscription query result:', { sub, error });
+                
                 // If no subscription exists, user is on free tier
-                if (!sub || error) {
+                if (!sub) {
                     console.log('No subscription found, user is on free tier');
                     currentSubscription = { tier: 'free', status: 'active' };
+                } else if (error) {
+                    console.error('Error loading subscription:', error);
+                    throw new Error('Could not load subscription details: ' + error.message);
                 } else {
+                    console.log('Found subscription:', sub);
                     currentSubscription = sub;
                 }
                 
