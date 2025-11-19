@@ -536,25 +536,30 @@
                     .from('subscriptions')
                     .select('*')
                     .eq('family_id', familyId)
-                    .single();
+                    .maybeSingle();
                 
-                if (error) {
-                    throw new Error('Could not load subscription details');
+                // If no subscription exists, user is on free tier
+                if (!sub || error) {
+                    console.log('No subscription found, user is on free tier');
+                    currentSubscription = { tier: 'free', status: 'active' };
+                } else {
+                    currentSubscription = sub;
                 }
-
-                currentSubscription = sub;
                 
                 // Update UI with current plan
                 const planEl = document.getElementById('current-plan');
                 planEl.querySelector('.plan-name').textContent = 
-                    `Current Plan: ${getTierDisplayName(sub.tier)}`;
+                    `Current Plan: ${getTierDisplayName(currentSubscription.tier)}`;
                 planEl.querySelector('.plan-price').textContent = 
-                    getTierPrice(sub.tier);
+                    getTierPrice(currentSubscription.tier);
                 
                 // If already on free tier, disable cancellation
-                if (sub.tier === 'free') {
-                    showAlert('error', 'You are already on the free plan');
+                if (currentSubscription.tier === 'free') {
+                    showAlert('error', 'You are already on the free plan. There is nothing to cancel.');
                     document.getElementById('cancel-btn').disabled = true;
+                    document.querySelector('.alternative-options').style.display = 'none';
+                    document.querySelector('.danger-box').style.display = 'none';
+                    document.querySelector('.feedback-section').style.display = 'none';
                 }
                 
             } catch (error) {
