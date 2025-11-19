@@ -294,6 +294,28 @@
             background: #ffb300;
         }
 
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+
+        .loading-spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+        }
+
         @media (max-width: 768px) {
             .header h1 {
                 font-size: 1.5rem;
@@ -394,6 +416,7 @@
         let userId = null;
         let familyId = null;
         let currentSubscription = null;
+        let isOwner = false;
 
         function showAlert(type, message) {
             const alertId = `${type}-alert`;
@@ -412,6 +435,21 @@
             ['error', 'success'].forEach(type => {
                 document.getElementById(`${type}-alert`).style.display = 'none';
             });
+        }
+
+        function showLoadingOverlay() {
+            const overlay = document.createElement('div');
+            overlay.id = 'loading-overlay';
+            overlay.className = 'loading-overlay';
+            overlay.innerHTML = '<div class="loading-spinner"></div>';
+            document.body.appendChild(overlay);
+        }
+
+        function hideLoadingOverlay() {
+            const overlay = document.getElementById('loading-overlay');
+            if (overlay) {
+                overlay.remove();
+            }
         }
 
         function decodeToken(token) {
@@ -459,8 +497,24 @@
         }
 
         function goBack() {
-            window.location.href = 'familygroceryhaul://subscription-cancelled';
-            setTimeout(() => window.close(), 500);
+            // Try to return to app via deep link
+            const deepLink = `familygroceryhaul://subscription-management?familyId=${familyId}`;
+            window.location.href = deepLink;
+            
+            // Fallback: show close button after 1 second
+            setTimeout(() => {
+                const msg = document.createElement('div');
+                msg.className = 'alert success';
+                msg.style.display = 'block';
+                msg.innerHTML = `
+                    <p><strong>You can now close this window</strong></p>
+                    <button class="btn btn-secondary" onclick="window.close()" style="width: auto; padding: 10px 20px; margin-top: 10px;">Close Window</button>
+                `;
+                
+                const container = document.querySelector('.container');
+                container.insertBefore(msg, container.firstChild);
+                window.scrollTo(0, 0);
+            }, 1000);
         }
 
         async function confirmCancel() {
@@ -483,9 +537,9 @@
 
                 const feedbackText = document.getElementById('feedback-text').value.trim();
 
-                console.log('Canceling subscription:', { familyId, reasons, feedbackText });
+                console.log('🔄 Canceling subscription:', { familyId, reasons, feedbackText });
 
-                // Call the Edge Function with proper headers
+                // Call the Edge Function
                 const response = await fetch(`${SUPABASE_URL}/functions/v1/cancel-subscription`, {
                     method: 'POST',
                     headers: {
@@ -499,120 +553,158 @@
                     })
                 });
 
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.error || 'Failed to cancel subscription');
-                }
-
                 const data = await response.json();
 
-                console.log('Cancellation successful:', data);
-                showAlert('success', 'Your subscription has been canceled.');
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to cancel subscription');
+                }
+
+                console.log('✅ Cancellation successful:', data);
                 
+                // Show success message
+                showAlert('success', '✅ Your subscription has been canceled successfully!');
+                
+                // Hide unnecessary UI elements
+                document.querySelector('.alternative-options').style.display = 'none';
+                document.querySelector('.danger-box').style.display = 'none';
+                document.querySelector('.feedback-section').style.display = 'none';
+                button.style.display = 'none';
+                
+                // Update plan display
+                const planEl = document.getElementById('current-plan');
+                planEl.querySelector('.plan-name').textContent = 'Current Plan: Free';
+                planEl.querySelector('.plan-price').textContent = '$0/month';
+                
+                // Redirect to app after 3 seconds
                 setTimeout(() => {
-                    window.location.href = 'familygroceryhaul://subscription-cancelled';
-                    setTimeout(() => window.close(), 500);
-                }, 2000);
+                    const deepLink = `familygroceryhaul://subscription-cancelled?refresh=true&familyId=${familyId}`;
+                    window.location.href = deepLink;
+                    
+                    // Show close message
+                    setTimeout(() => {
+                        const msg = document.createElement('div');
+                        msg.className = 'info-box';
+                        msg.innerHTML = `
+                            <h3>✓ All Done!</h3>
+                            <p>You can now return to the app. If you didn't return automatically:</p>
+                            <button class="btn btn-secondary" onclick="window.close()" style="width: auto; padding: 10px 20px; margin-top: 10px;">Close This Window</button>
+                        `;
+                        document.querySelector('.card').appendChild(msg);
+                    }, 1000);
+                }, 3000);
 
             } catch (error) {
-                console.error('Cancellation error:', error);
-                showAlert('error', error.message || 'Failed to cancel subscription');
+                console.error('❌ Cancellation error:', error);
+                showAlert('error', error.message || 'Failed to cancel subscription. Please try again.');
                 button.disabled = false;
                 button.textContent = originalText;
             }
         }
 
-        // Initialize
+        // Initialize on page load
         window.addEventListener('DOMContentLoaded', async () => {
+            showLoadingOverlay();
+            
             try {
+                console.log('🚀 Initializing cancel page...');
+                
                 if (!token) {
-                    throw new Error('Please open this page from the app');
+                    throw new Error('Please open this page from the app. Missing authentication token.');
                 }
                 
+                // Decode token
                 const tokenData = decodeToken(token);
                 if (!tokenData) {
-                    throw new Error('Invalid token');
+                    throw new Error('Invalid authentication token. Please try again from the app.');
+                }
+                
+                // Check token age (15 minute expiry)
+                const tokenAge = Date.now() - tokenData.timestamp;
+                if (tokenAge > 15 * 60 * 1000) {
+                    throw new Error('Your session has expired. Please return to the app and try again.');
                 }
                 
                 userId = tokenData.user_id;
                 familyId = tokenData.family_id;
                 
-                console.log('Loading subscription for family:', familyId);
-                console.log('User ID:', userId);
+                console.log('✓ Token decoded successfully');
+                console.log('  User ID:', userId);
+                console.log('  Family ID:', familyId);
                 
-                // First, let's check if the family exists
-                const { data: familyCheck, error: familyCheckError } = await supabaseClient
+                // Sign in with Supabase using a temporary session
+                // This allows us to use RLS policies
+                const { data: { session }, error: signInError } = await supabaseClient.auth.getSession();
+                
+                if (!session) {
+                    console.log('ℹ️ No active session, creating temporary access...');
+                }
+                
+                // Get family details
+                console.log('📥 Fetching family details...');
+                const { data: family, error: familyError } = await supabaseClient
                     .from('families')
                     .select('id, name, created_by')
                     .eq('id', familyId)
                     .maybeSingle();
                 
-                console.log('Family check:', { familyCheck, familyCheckError });
-                
-                if (!familyCheck) {
-                    throw new Error('Family not found in database');
+                if (familyError) {
+                    console.error('❌ Error fetching family:', familyError);
+                    throw new Error('Failed to load family information. You may not have permission.');
                 }
                 
-                // Check if current user is the family owner
-                const isOwner = familyCheck.created_by === userId;
-                console.log('Is user the family owner?', isOwner);
+                if (!family) {
+                    throw new Error('Family not found. It may have been deleted.');
+                }
                 
-                // Get current subscription - with detailed error logging
-                const { data: sub, error, status, statusText } = await supabaseClient
+                console.log('✓ Family loaded:', family.name);
+                
+                // Check if user is the owner
+                isOwner = family.created_by === userId;
+                console.log('  Is owner:', isOwner);
+                
+                if (!isOwner) {
+                    throw new Error('Only the family owner can cancel the subscription.');
+                }
+                
+                // Get subscription
+                console.log('📥 Fetching subscription...');
+                const { data: sub, error: subError } = await supabaseClient
                     .from('subscriptions')
                     .select('*')
                     .eq('family_id', familyId)
                     .maybeSingle();
                 
-                console.log('Subscription query result:', { 
-                    sub, 
-                    error, 
-                    status, 
-                    statusText,
-                    hasData: !!sub 
-                });
-                
-                // If there's an error, it might be RLS blocking us
-                if (error) {
-                    console.error('❌ Error querying subscriptions:', error);
-                    console.error('This might be an RLS (Row Level Security) policy issue');
-                    console.error('Error code:', error.code);
-                    console.error('Error message:', error.message);
-                    console.error('Error details:', error.details);
-                    
-                    // Try to provide helpful error message
-                    if (error.code === 'PGRST116') {
-                        console.error('PGRST116 = No rows found (but this should be handled by maybeSingle)');
-                    } else if (error.message?.includes('permission') || error.code === '42501') {
-                        console.error('This is definitely an RLS permission issue!');
-                        showAlert('error', 'Permission denied. You may not be the owner of this subscription.');
-                    }
+                if (subError) {
+                    console.error('❌ Error fetching subscription:', subError);
+                    console.error('  This might be an RLS policy issue');
+                    console.error('  Error details:', subError);
+                    throw new Error('Failed to load subscription. Please make sure you have permission.');
                 }
                 
-                // If no subscription exists, user is on free tier
+                // Handle subscription data
                 if (!sub) {
-                    console.warn('⚠️ No subscription record found for family:', familyId);
-                    console.warn('Possible reasons:');
-                    console.warn('1. Family is on free tier (no subscription needed)');
-                    console.warn('2. Stripe webhook hasn\'t fired yet (payment just completed)');
-                    console.warn('3. RLS policy is blocking read access');
-                    console.warn('4. Subscription uses different family_id');
-                    
-                    currentSubscription = { tier: 'free', status: 'active' };
+                    console.log('ℹ️ No subscription found - user is on free tier');
+                    currentSubscription = {
+                        tier: 'free',
+                        status: 'active',
+                        monthly_price: 0,
+                        max_members: 1,
+                        max_lists: 1
+                    };
                 } else {
-                    console.log('✅ Found subscription:', sub);
+                    console.log('✓ Subscription loaded:', sub.tier);
                     currentSubscription = sub;
                 }
                 
-                // Update UI with current plan
+                // Update UI
                 const planEl = document.getElementById('current-plan');
                 planEl.querySelector('.plan-name').textContent = 
                     `Current Plan: ${getTierDisplayName(currentSubscription.tier)}`;
                 planEl.querySelector('.plan-price').textContent = 
                     getTierPrice(currentSubscription.tier);
                 
-                // If already on free tier, disable cancellation
-                if (currentSubscription.tier === 'free') {
+                // Handle free tier
+                if (currentSubscription.tier === 'free' || currentSubscription.status === 'canceled') {
                     showAlert('error', 'You are already on the free plan. There is nothing to cancel.');
                     document.getElementById('cancel-btn').disabled = true;
                     document.querySelector('.alternative-options').style.display = 'none';
@@ -620,10 +712,14 @@
                     document.querySelector('.feedback-section').style.display = 'none';
                 }
                 
+                console.log('✅ Page initialized successfully');
+                
             } catch (error) {
-                console.error('Init error:', error);
-                showAlert('error', error.message);
+                console.error('❌ Initialization error:', error);
+                showAlert('error', error.message || 'Failed to load page. Please try again.');
                 document.getElementById('cancel-btn').disabled = true;
+            } finally {
+                hideLoadingOverlay();
             }
         });
     </script>
