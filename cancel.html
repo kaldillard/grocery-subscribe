@@ -459,8 +459,7 @@
         }
 
         function goBack() {
-            // Use the custom URL scheme to return to app
-            window.location.href = `familygroceryhaul://cancelled?familyId=${familyId}&refresh=true`;
+            window.location.href = 'familygroceryhaul://subscription-cancelled';
             setTimeout(() => window.close(), 500);
         }
 
@@ -486,7 +485,7 @@
 
                 console.log('Canceling subscription:', { familyId, reasons, feedbackText });
 
-                // Call the Edge Function
+                // Call the Edge Function with proper headers
                 const response = await fetch(`${SUPABASE_URL}/functions/v1/cancel-subscription`, {
                     method: 'POST',
                     headers: {
@@ -508,11 +507,10 @@
                 const data = await response.json();
 
                 console.log('Cancellation successful:', data);
-                showAlert('success', 'Your subscription has been canceled. Redirecting to app...');
+                showAlert('success', 'Your subscription has been canceled.');
                 
-                // Wait 2 seconds then redirect with refresh flag
                 setTimeout(() => {
-                    window.location.href = `familygroceryhaul://cancelled?familyId=${familyId}&refresh=true`;
+                    window.location.href = 'familygroceryhaul://subscription-cancelled';
                     setTimeout(() => window.close(), 500);
                 }, 2000);
 
@@ -542,24 +540,67 @@
                 console.log('Loading subscription for family:', familyId);
                 console.log('User ID:', userId);
                 
-                // Get current subscription
-                const { data: sub, error } = await supabaseClient
+                // First, let's check if the family exists
+                const { data: familyCheck, error: familyCheckError } = await supabaseClient
+                    .from('families')
+                    .select('id, name, created_by')
+                    .eq('id', familyId)
+                    .maybeSingle();
+                
+                console.log('Family check:', { familyCheck, familyCheckError });
+                
+                if (!familyCheck) {
+                    throw new Error('Family not found in database');
+                }
+                
+                // Check if current user is the family owner
+                const isOwner = familyCheck.created_by === userId;
+                console.log('Is user the family owner?', isOwner);
+                
+                // Get current subscription - with detailed error logging
+                const { data: sub, error, status, statusText } = await supabaseClient
                     .from('subscriptions')
                     .select('*')
                     .eq('family_id', familyId)
                     .maybeSingle();
                 
-                console.log('Subscription query result:', { sub, error });
+                console.log('Subscription query result:', { 
+                    sub, 
+                    error, 
+                    status, 
+                    statusText,
+                    hasData: !!sub 
+                });
+                
+                // If there's an error, it might be RLS blocking us
+                if (error) {
+                    console.error('❌ Error querying subscriptions:', error);
+                    console.error('This might be an RLS (Row Level Security) policy issue');
+                    console.error('Error code:', error.code);
+                    console.error('Error message:', error.message);
+                    console.error('Error details:', error.details);
+                    
+                    // Try to provide helpful error message
+                    if (error.code === 'PGRST116') {
+                        console.error('PGRST116 = No rows found (but this should be handled by maybeSingle)');
+                    } else if (error.message?.includes('permission') || error.code === '42501') {
+                        console.error('This is definitely an RLS permission issue!');
+                        showAlert('error', 'Permission denied. You may not be the owner of this subscription.');
+                    }
+                }
                 
                 // If no subscription exists, user is on free tier
                 if (!sub) {
-                    console.log('No subscription found, user is on free tier');
+                    console.warn('⚠️ No subscription record found for family:', familyId);
+                    console.warn('Possible reasons:');
+                    console.warn('1. Family is on free tier (no subscription needed)');
+                    console.warn('2. Stripe webhook hasn\'t fired yet (payment just completed)');
+                    console.warn('3. RLS policy is blocking read access');
+                    console.warn('4. Subscription uses different family_id');
+                    
                     currentSubscription = { tier: 'free', status: 'active' };
-                } else if (error) {
-                    console.error('Error loading subscription:', error);
-                    throw new Error('Could not load subscription details: ' + error.message);
                 } else {
-                    console.log('Found subscription:', sub);
+                    console.log('✅ Found subscription:', sub);
                     currentSubscription = sub;
                 }
                 
