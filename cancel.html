@@ -459,7 +459,8 @@
         }
 
         function goBack() {
-            window.location.href = 'familygroceryhaul://subscription-cancelled';
+            // Use the custom URL scheme to return to app
+            window.location.href = `familygroceryhaul://cancelled?familyId=${familyId}&refresh=true`;
             setTimeout(() => window.close(), 500);
         }
 
@@ -485,7 +486,7 @@
 
                 console.log('Canceling subscription:', { familyId, reasons, feedbackText });
 
-                // Call the Edge Function with proper headers
+                // Call the Edge Function
                 const response = await fetch(`${SUPABASE_URL}/functions/v1/cancel-subscription`, {
                     method: 'POST',
                     headers: {
@@ -507,10 +508,11 @@
                 const data = await response.json();
 
                 console.log('Cancellation successful:', data);
-                showAlert('success', 'Your subscription has been canceled.');
+                showAlert('success', 'Your subscription has been canceled. Redirecting to app...');
                 
+                // Wait 2 seconds then redirect with refresh flag
                 setTimeout(() => {
-                    window.location.href = 'familygroceryhaul://subscription-cancelled';
+                    window.location.href = `familygroceryhaul://cancelled?familyId=${familyId}&refresh=true`;
                     setTimeout(() => window.close(), 500);
                 }, 2000);
 
