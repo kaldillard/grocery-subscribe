@@ -111,6 +111,32 @@
             font-weight: bold;
         }
 
+        .trial-info-box {
+            background: #e3f2fd;
+            border: 2px solid #2196F3;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 24px;
+            display: none;
+        }
+
+        .trial-info-box h3 {
+            color: #1565c0;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .trial-info-box p {
+            color: #1565c0;
+            line-height: 1.5;
+        }
+
+        .trial-info-box strong {
+            font-weight: 700;
+        }
+
         .plan-options {
             display: grid;
             gap: 16px;
@@ -161,6 +187,17 @@
         .plan-features {
             color: #666;
             font-size: 0.9rem;
+        }
+
+        .trial-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #2196F3, #1976D2);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            margin-left: 8px;
         }
 
         .btn {
@@ -252,6 +289,15 @@
             <div id="error-alert" class="alert error"></div>
             <div id="success-alert" class="alert success"></div>
 
+            <!-- Trial Information Box -->
+            <div class="trial-info-box" id="trial-info">
+                <h3>⏰ You're Currently in Trial</h3>
+                <p>
+                    You have <strong id="trial-days">X days</strong> remaining in your free trial. 
+                    Downgrading now will end your trial immediately and apply the new plan limits.
+                </p>
+            </div>
+
             <div class="warning-box">
                 <h3>⚠️ What happens when you downgrade:</h3>
                 <ul id="downgrade-warnings">
@@ -268,7 +314,10 @@
                 <div class="plan-option" id="pro-option" onclick="selectPlan('pro')">
                     <input type="radio" name="plan" id="pro-radio" value="pro">
                     <label for="pro-radio">
-                        <div class="plan-name">Pro</div>
+                        <div class="plan-name">
+                            Pro
+                            <span class="trial-badge">14-Day Trial Available</span>
+                        </div>
                         <div class="plan-price">$1.99/month</div>
                         <div class="plan-features">1 user • Unlimited lists</div>
                     </label>
@@ -307,6 +356,8 @@
         let currentTier = null;
         let memberCount = 0;
         let selectedPlan = null;
+        let isInTrial = false;
+        let trialDaysRemaining = 0;
 
         function showAlert(type, message) {
             const alertId = `${type}-alert`;
@@ -362,6 +413,11 @@
             
             let warnings = [];
             
+            // Trial warning
+            if (isInTrial) {
+                warnings.push('End your free trial immediately');
+            }
+            
             if (membersToRemove > 0) {
                 warnings.push(`Remove ${membersToRemove} family member${membersToRemove > 1 ? 's' : ''} (only you will remain)`);
             }
@@ -371,6 +427,10 @@
             }
             
             warnings.push('Cancel your current paid subscription');
+            
+            if (plan === 'pro' && !isInTrial) {
+                warnings.push('Start a new 14-day free trial for Pro plan');
+            }
             
             warningsList.innerHTML = warnings.map(w => `<li>${w}</li>`).join('');
         }
@@ -403,7 +463,13 @@
                 }
 
                 console.log('Downgrade successful:', data);
-                showAlert('success', 'Subscription downgraded successfully!');
+                
+                let successMessage = 'Subscription downgraded successfully!';
+                if (selectedPlan === 'pro' && !isInTrial) {
+                    successMessage += ' Your new 14-day free trial has started!';
+                }
+                
+                showAlert('success', successMessage);
                 
                 setTimeout(() => {
                     window.location.href = 'familygroceryhaul://subscription-updated';
@@ -421,6 +487,17 @@
         function cancel() {
             window.location.href = 'familygroceryhaul://subscription-cancelled';
             setTimeout(() => window.close(), 500);
+        }
+
+        function calculateTrialDaysRemaining(trialEnd) {
+            if (!trialEnd) return 0;
+            
+            const now = new Date();
+            const endDate = new Date(trialEnd);
+            const difference = endDate - now;
+            const days = Math.ceil(difference / (1000 * 60 * 60 * 24));
+            
+            return days > 0 ? days : 0;
         }
 
         // Initialize
@@ -441,11 +518,24 @@
                 // Get current subscription
                 const { data: sub } = await supabaseClient
                     .from('subscriptions')
-                    .select('tier')
+                    .select('tier, status, trial_end')
                     .eq('family_id', familyId)
                     .single();
                 
                 currentTier = sub?.tier || 'free';
+                
+                // Check if in trial
+                if (sub?.status === 'trialing' && sub?.trial_end) {
+                    isInTrial = true;
+                    trialDaysRemaining = calculateTrialDaysRemaining(sub.trial_end);
+                    
+                    // Show trial info box
+                    const trialInfoBox = document.getElementById('trial-info');
+                    const trialDaysSpan = document.getElementById('trial-days');
+                    
+                    trialDaysSpan.textContent = `${trialDaysRemaining} day${trialDaysRemaining !== 1 ? 's' : ''}`;
+                    trialInfoBox.style.display = 'block';
+                }
                 
                 // Get member count
                 const { data: members } = await supabaseClient

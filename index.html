@@ -30,7 +30,7 @@
         .header {
             text-align: center;
             color: white;
-            margin-bottom: 40px;
+            margin-bottom: 20px;
         }
 
         .header h1 {
@@ -42,6 +42,32 @@
         .header p {
             font-size: 1.2rem;
             opacity: 0.95;
+        }
+
+        /* Trial Banner */
+        .trial-banner {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            text-align: center;
+        }
+
+        .trial-banner h2 {
+            color: #2196F3;
+            font-size: 1.8rem;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .trial-banner p {
+            color: #666;
+            font-size: 1.1rem;
+            margin: 0;
         }
 
         .plans {
@@ -85,6 +111,19 @@
             letter-spacing: 0.5px;
         }
 
+        /* Trial Badge */
+        .trial-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #2196F3, #1976D2);
+            color: white;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 8px rgba(33, 150, 243, 0.3);
+        }
+
         .plan-name {
             font-size: 1.5rem;
             color: #333;
@@ -105,8 +144,15 @@
 
         .plan-period {
             color: #666;
-            margin-bottom: 24px;
+            margin-bottom: 8px;
             font-size: 0.95rem;
+        }
+
+        .trial-info {
+            color: #2196F3;
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 20px;
         }
 
         .features {
@@ -234,6 +280,10 @@
                 font-size: 2rem;
             }
             
+            .trial-banner h2 {
+                font-size: 1.4rem;
+            }
+            
             .plan {
                 padding: 24px 20px;
             }
@@ -251,6 +301,12 @@
             <p>Choose the plan that's right for you</p>
         </div>
 
+        <!-- Trial Banner -->
+        <div class="trial-banner">
+            <h2>⏰ Try Any Paid Plan Free for 14 Days!</h2>
+            <p>No credit card required • Cancel anytime during trial</p>
+        </div>
+
         <div id="error-alert" class="alert error"></div>
         <div id="warning-alert" class="alert warning"></div>
         <div id="info-alert" class="alert info"></div>
@@ -259,11 +315,13 @@
         <div class="plans">
             <!-- Pro Plan -->
             <div class="plan">
+                <span class="trial-badge">14 Days Free</span>
                 <div class="plan-name">Pro</div>
                 <div class="plan-price">
                     <span class="currency">$</span>1.99
                 </div>
                 <div class="plan-period">per month</div>
+                <div class="trial-info">after 14-day free trial</div>
                 <ul class="features">
                     <li>1 user</li>
                     <li>1 family</li>
@@ -272,17 +330,19 @@
                     <li>All features</li>
                 </ul>
                 <button class="subscribe-btn" onclick="subscribe('pro')" id="pro-btn">
-                    Subscribe to Pro
+                    Start Free Trial
                 </button>
             </div>
 
             <!-- Family Plan -->
             <div class="plan featured">
+                <span class="trial-badge">14 Days Free</span>
                 <div class="plan-name">Family</div>
                 <div class="plan-price" id="family-price">
                     <span class="currency">$</span>4.99
                 </div>
                 <div class="plan-period" id="family-period">per month</div>
+                <div class="trial-info">after 14-day free trial</div>
                 <ul class="features">
                     <li>Up to 5 users included</li>
                     <li>$0.99 per additional user</li>
@@ -293,7 +353,7 @@
                     <li>Share with family</li>
                 </ul>
                 <button class="subscribe-btn" onclick="subscribe('family')" id="family-btn">
-                    Subscribe to Family
+                    Start Free Trial
                 </button>
             </div>
         </div>
@@ -310,7 +370,8 @@
             <h3>⭐ Early Adopter Benefit</h3>
             <p>
                 Subscribe now and lock in these prices forever! Your rate stays the same 
-                even when prices increase for new users. Plus, cancel anytime with no questions asked.
+                even when prices increase for new users. Plus, start with a 14-day free trial 
+                and cancel anytime with no questions asked.
             </p>
         </div>
     </div>
@@ -346,7 +407,6 @@
             });
         }
 
-        // Decode base64url token
         function decodeToken(token) {
             try {
                 let paddedToken = token;
@@ -362,7 +422,6 @@
             }
         }
 
-        // Check if token is still valid (15 minutes)
         function isTokenValid(tokenData) {
             if (!tokenData || !tokenData.timestamp) return false;
             
@@ -440,10 +499,8 @@
             }
         }
 
-        // Initialize page
         window.addEventListener('DOMContentLoaded', async () => {
             try {
-                // Try token authentication first
                 if (token) {
                     console.log('Token received, validating...');
                     const tokenData = decodeToken(token);
@@ -460,10 +517,9 @@
                     familyId = tokenData.family_id;
                     
                     console.log('Token validated:', { userId, familyId });
-                    showAlert('success', '✓ Ready to subscribe! Choose your plan below.');
+                    showAlert('success', '✓ Ready to start your free trial! Choose your plan below.');
                     
                 } else {
-                    // Fallback to session auth
                     const { data: { session } } = await supabaseClient.auth.getSession();
                     
                     if (!session) {
@@ -490,7 +546,6 @@
                     }
                 }
 
-                // Check existing subscription
                 if (familyId) {
                     const { data: existingSub } = await supabaseClient
                         .from('subscriptions')
@@ -505,7 +560,6 @@
                     }
                 }
 
-                // Load member count and calculate pricing
                 if (familyId) {
                     const { data: members } = await supabaseClient
                         .from('family_members')
