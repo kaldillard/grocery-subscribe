@@ -603,125 +603,91 @@
 
         // Initialize on page load
         window.addEventListener('DOMContentLoaded', async () => {
-            showLoadingOverlay();
-            
-            try {
-                console.log('🚀 Initializing cancel page...');
-                
-                if (!token) {
-                    throw new Error('Please open this page from the app. Missing authentication token.');
-                }
-                
-                // Decode token
-                const tokenData = decodeToken(token);
-                if (!tokenData) {
-                    throw new Error('Invalid authentication token. Please try again from the app.');
-                }
-                
-                // Check token age (15 minute expiry)
-                const tokenAge = Date.now() - tokenData.timestamp;
-                if (tokenAge > 15 * 60 * 1000) {
-                    throw new Error('Your session has expired. Please return to the app and try again.');
-                }
-                
-                userId = tokenData.user_id;
-                familyId = tokenData.family_id;
-                
-                console.log('✓ Token decoded successfully');
-                console.log('  User ID:', userId);
-                console.log('  Family ID:', familyId);
-                
-                // Sign in with Supabase using a temporary session
-                // This allows us to use RLS policies
-                const { data: { session }, error: signInError } = await supabaseClient.auth.getSession();
-                
-                if (!session) {
-                    console.log('ℹ️ No active session, creating temporary access...');
-                }
-                
-                // Get family details
-                console.log('📥 Fetching family details...');
-                const { data: family, error: familyError } = await supabaseClient
-                    .from('families')
-                    .select('id, name, created_by')
-                    .eq('id', familyId)
-                    .maybeSingle();
-                
-                if (familyError) {
-                    console.error('❌ Error fetching family:', familyError);
-                    throw new Error('Failed to load family information. You may not have permission.');
-                }
-                
-                if (!family) {
-                    throw new Error('Family not found. It may have been deleted.');
-                }
-                
-                console.log('✓ Family loaded:', family.name);
-                
-                // Check if user is the owner
-                isOwner = family.created_by === userId;
-                console.log('  Is owner:', isOwner);
-                
-                if (!isOwner) {
-                    throw new Error('Only the family owner can cancel the subscription.');
-                }
-                
-                // Get subscription
-                console.log('📥 Fetching subscription...');
-                const { data: sub, error: subError } = await supabaseClient
-                    .from('subscriptions')
-                    .select('*')
-                    .eq('family_id', familyId)
-                    .maybeSingle();
-                
-                if (subError) {
-                    console.error('❌ Error fetching subscription:', subError);
-                    console.error('  This might be an RLS policy issue');
-                    console.error('  Error details:', subError);
-                    throw new Error('Failed to load subscription. Please make sure you have permission.');
-                }
-                
-                // Handle subscription data
-                if (!sub) {
-                    console.log('ℹ️ No subscription found - user is on free tier');
-                    currentSubscription = {
-                        tier: 'free',
-                        status: 'active',
-                        monthly_price: 0,
-                        max_members: 1,
-                        max_lists: 1
-                    };
-                } else {
-                    console.log('✓ Subscription loaded:', sub.tier);
-                    currentSubscription = sub;
-                }
-                
-                // Update UI
-                const planEl = document.getElementById('current-plan');
-                planEl.querySelector('.plan-name').textContent = 
-                    `Current Plan: ${getTierDisplayName(currentSubscription.tier)}`;
-                planEl.querySelector('.plan-price').textContent = 
-                    getTierPrice(currentSubscription.tier);
-                
-                // Handle free tier
-                if (currentSubscription.tier === 'free' || currentSubscription.status === 'canceled') {
-                    showAlert('error', 'You are already on the free plan. There is nothing to cancel.');
-                    document.getElementById('cancel-btn').disabled = true;
-                    document.querySelector('.alternative-options').style.display = 'none';
-                    document.querySelector('.danger-box').style.display = 'none';
-                    document.querySelector('.feedback-section').style.display = 'none';
-                }
-                
-                console.log('✅ Page initialized successfully');
-                
-            } catch (error) {
-                console.error('❌ Initialization error:', error);
-                showAlert('error', error.message || 'Failed to load page. Please try again.');
-                document.getElementById('cancel-btn').disabled = true;
-            } finally {
-                hideLoadingOverlay();
-            }
+    showLoadingOverlay();
+    
+    try {
+        console.log('🚀 Initializing cancel page...');
+        
+        if (!token) {
+            throw new Error('Please open this page from the app. Missing authentication token.');
+        }
+        
+        // Decode token
+        const tokenData = decodeToken(token);
+        if (!tokenData) {
+            throw new Error('Invalid authentication token. Please try again from the app.');
+        }
+        
+        // Check token age (15 minute expiry)
+        const tokenAge = Date.now() - tokenData.timestamp;
+        if (tokenAge > 15 * 60 * 1000) {
+            throw new Error('Your session has expired. Please return to the app and try again.');
+        }
+        
+        userId = tokenData.user_id;
+        familyId = tokenData.family_id;
+        
+        console.log('✓ Token decoded successfully');
+        console.log('  User ID:', userId);
+        console.log('  Family ID:', familyId);
+        
+        // Get subscription status by calling the Edge Function
+        console.log('📥 Fetching subscription status...');
+        
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/get-subscription-status`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+            },
+            body: JSON.stringify({
+                token: token,
+                family_id: familyId
+            })
         });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to load subscription information');
+        }
+
+        const data = await response.json();
+        console.log('✓ Subscription data loaded:', data);
+        
+        // Check if user is owner
+        if (!data.is_owner) {
+            throw new Error('Only the family owner can cancel the subscription.');
+        }
+        
+        isOwner = data.is_owner;
+        currentSubscription = data.subscription;
+        
+        // Update UI
+        const planEl = document.getElementById('current-plan');
+        planEl.querySelector('.plan-name').textContent = 
+            `Current Plan: ${getTierDisplayName(currentSubscription.tier)}`;
+        planEl.querySelector('.plan-price').textContent = 
+            getTierPrice(currentSubscription.tier);
+        
+        // Handle free tier
+        if (currentSubscription.tier === 'free' || currentSubscription.status === 'canceled') {
+            showAlert('error', 'You are already on the free plan. There is nothing to cancel.');
+            document.getElementById('cancel-btn').disabled = true;
+            document.querySelector('.alternative-options').style.display = 'none';
+            document.querySelector('.danger-box').style.display = 'none';
+            document.querySelector('.feedback-section').style.display = 'none';
+        }
+        
+        console.log('✅ Page initialized successfully');
+        
+    } catch (error) {
+        console.error('❌ Initialization error:', error);
+        showAlert('error', error.message || 'Failed to load page. Please try again.');
+        document.getElementById('cancel-btn').disabled = true;
+    } finally {
+        hideLoadingOverlay();
+    }
+});
     </script>
 </body>
 </html>
